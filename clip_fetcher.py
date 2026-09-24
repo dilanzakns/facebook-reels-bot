@@ -61,9 +61,17 @@ def get_clip_from_local_folder() -> Optional[Dict[str, Any]]:
 def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
     """
     Finds and downloads trending short viral sports comedy or impossible trick clips.
+    Uses mobile client spoofing (iOS/Android) to bypass datacenter bot detection.
     """
     queries = list(VIRAL_SEARCH_QUERIES)
     random.shuffle(queries)
+
+    # Multi-client strategy to prevent datacenter IP blocks on GitHub Actions
+    extractor_args = {
+        'youtube': {
+            'player_client': ['ios', 'android', 'web_creator', 'mweb']
+        }
+    }
 
     for query in queries:
         print(f"[*] Searching viral clips for query: '{query}'...")
@@ -73,6 +81,7 @@ def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
             'quiet': True,
             'extract_flat': True,
             'no_warnings': True,
+            'extractor_args': extractor_args
         }
 
         try:
@@ -94,7 +103,6 @@ def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
                 title = entry.get('title', 'Amazing Sports Moment')
                 duration = entry.get('duration', 30)
 
-                # Ideal Reels length: 5 to 60 seconds
                 if duration and (duration < MIN_VIDEO_DURATION_SEC or duration > MAX_VIDEO_DURATION_SEC):
                     continue
 
@@ -103,13 +111,20 @@ def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
                 target_path = str(RAW_CLIPS_DIR / target_filename)
 
                 print(f"[+] Downloading viral candidate: '{title}'...")
-                import imageio_ffmpeg
+                
+                try:
+                    import imageio_ffmpeg
+                    ffmpeg_binary = imageio_ffmpeg.get_ffmpeg_exe()
+                except Exception:
+                    ffmpeg_binary = "ffmpeg"
+
                 ydl_opts_download = {
-                    'ffmpeg_location': imageio_ffmpeg.get_ffmpeg_exe(),
+                    'ffmpeg_location': ffmpeg_binary,
                     'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                     'outtmpl': target_path,
                     'quiet': True,
                     'no_warnings': True,
+                    'extractor_args': extractor_args,
                     'merge_output_format': 'mp4'
                 }
 
@@ -138,17 +153,13 @@ def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
 
 def get_next_viral_clip() -> Optional[Dict[str, Any]]:
     """
-    Main entry point for getting the next video clip:
-    1. Checks local raw_clips drop folder
-    2. Searches and fetches fresh viral sports comedy / impossible clips
+    Main entry point for getting the next video clip.
     """
-    # 1. Local folder check
     local_clip = get_clip_from_local_folder()
     if local_clip:
         print(f"[+] Using clip from local folder: {local_clip['title']}")
         return local_clip
 
-    # 2. Viral search fetch
     viral_clip = fetch_clip_from_viral_search()
     if viral_clip:
         return viral_clip
