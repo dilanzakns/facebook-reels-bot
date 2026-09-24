@@ -1,0 +1,48 @@
+name: 24/7 Facebook Reels Auto-Poster
+
+on:
+  schedule:
+    # Runs automatically every 4 hours (24/7 cloud automation)
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allows 1-click manual trigger from GitHub Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  post-reel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Auto Poster Pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          POST_INTERVAL_HOURS: 4
+          WATERMARK_TEXT: Follow Game Scene LK for Daily Impossible Moments 🔥
+        run: python main.py --run-once
+
+      - name: Commit & push updated history database
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add history.db
+          git diff --quiet && git diff --staged --quiet || git commit -m "Auto: Update post history [skip ci]"
+          git push
