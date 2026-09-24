@@ -17,7 +17,6 @@ if sys.platform == "win32":
 from config import RAW_CLIPS_DIR, MIN_VIDEO_DURATION_SEC, MAX_VIDEO_DURATION_SEC
 from database import is_clip_processed, record_clip
 
-# High-engagement search terms for sports comedy and impossible tricks
 VIRAL_SEARCH_QUERIES = [
     "impossible sports moments shorts",
     "funny sports comedy moments shorts",
@@ -30,10 +29,6 @@ VIRAL_SEARCH_QUERIES = [
 ]
 
 def get_clip_from_local_folder() -> Optional[Dict[str, Any]]:
-    """
-    Checks the local RAW_CLIPS_DIR for any manually added video files.
-    Returns the first unprocessed video clip metadata if found.
-    """
     extensions = ["*.mp4", "*.mov", "*.mkv", "*.webm"]
     all_files = []
     for ext in extensions:
@@ -59,17 +54,12 @@ def get_clip_from_local_folder() -> Optional[Dict[str, Any]]:
     return None
 
 def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
-    """
-    Finds and downloads trending short viral sports comedy or impossible trick clips.
-    Uses mobile client spoofing (iOS/Android) to bypass datacenter bot detection.
-    """
     queries = list(VIRAL_SEARCH_QUERIES)
     random.shuffle(queries)
 
-    # Multi-client strategy to prevent datacenter IP blocks on GitHub Actions
     extractor_args = {
         'youtube': {
-            'player_client': ['ios', 'android', 'web_creator', 'mweb']
+            'player_client': ['android']
         }
     }
 
@@ -111,21 +101,13 @@ def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
                 target_path = str(RAW_CLIPS_DIR / target_filename)
 
                 print(f"[+] Downloading viral candidate: '{title}'...")
-                
-                try:
-                    import imageio_ffmpeg
-                    ffmpeg_binary = imageio_ffmpeg.get_ffmpeg_exe()
-                except Exception:
-                    ffmpeg_binary = "ffmpeg"
 
                 ydl_opts_download = {
-                    'ffmpeg_location': ffmpeg_binary,
-                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                    'format': 'best',
                     'outtmpl': target_path,
                     'quiet': True,
                     'no_warnings': True,
-                    'extractor_args': extractor_args,
-                    'merge_output_format': 'mp4'
+                    'extractor_args': extractor_args
                 }
 
                 with yt_dlp.YoutubeDL(ydl_opts_download) as ydl_down:
@@ -152,9 +134,6 @@ def fetch_clip_from_viral_search() -> Optional[Dict[str, Any]]:
     return None
 
 def get_next_viral_clip() -> Optional[Dict[str, Any]]:
-    """
-    Main entry point for getting the next video clip.
-    """
     local_clip = get_clip_from_local_folder()
     if local_clip:
         print(f"[+] Using clip from local folder: {local_clip['title']}")
